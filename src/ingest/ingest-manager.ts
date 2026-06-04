@@ -5,12 +5,14 @@
  * - Receber arquivos (upload ou path)
  * - Parsear com DocumentParser
  * - Transformar em páginas do GBrain
- * - Inserir no banco com metadados apropriados
+ * - Inserir no banco via BrainEngine
  */
 
 import { promises as fs } from 'fs';
 import path from 'path';
 import { DocumentParser, ParsedDocument, ParseOptions } from './document-parser.js';
+import type { BrainEngine } from '../core/engine.js';
+import { addSource } from '../core/sources-ops.js';
 
 export interface IngestResult {
   success: boolean;
@@ -37,6 +39,11 @@ export interface IngestBatchOptions {
 
 export class IngestManager {
   private parser = new DocumentParser();
+  private engine: BrainEngine;
+
+  constructor(engine: BrainEngine) {
+    this.engine = engine;
+  }
 
   /**
    * Ingestão única de arquivo
@@ -68,15 +75,15 @@ export class IngestManager {
       result.metadata.tokensEstimate = Math.ceil(parsed.content.length / 4);
 
       // 3. Criar source no GBrain
-      const sourceId = await this.createSource({
-        brainId: options.brainId,
+      const sourceRow = await this.createSource({
+        id: `ingest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name: options.sourceName || parsed.filename,
         type: 'document-upload',
         metadata: parsed.metadata,
         tags: options.tags,
         category: options.category,
       });
-      result.sourceId = sourceId;
+      result.sourceId = sourceRow.id;
 
       if (options.dryRun) {
         result.success = true;
@@ -84,20 +91,28 @@ export class IngestManager {
         return result;
       }
 
-      // 4. Criar páginas
+      // 4. Criar páginas via BrainEngine.putPage
       const pages = this.splitIntoPages(parsed, {
         maxTokensPerPage: 4000,
         overlapTokens: 200,
       });
 
-      for (const page of pages) {
-        await this.createPage({
-          brainId: options.brainId,
-          sourceId,
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const slug = this.makeSlug(parsed.filename, i, pages.length);
+        
+        await this.engine.putPage(slug, {
           title: page.title,
           content: page.content,
-          metadata: page.metadata,
+          frontmatter: {
+            type: options.category || 'document',
+            tags: options.tags || [],
+            ...page.metadata,
+          },
+        }, {
+          sourceId: sourceRow.id,
         });
+        
         result.pagesCreated++;
       }
 
@@ -108,6 +123,19 @@ export class IngestManager {
     }
 
     return result;
+  }
+  
+  private makeSlug(filename: string, index: number, total: number): string {
+    const base = filename
+      .replace(/\.[^/.]+$/, '') // remove extensão
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    
+    if (total === 1) {
+      return `docs/${base}`;
+    }
+    return `docs/${base}-parte-${index + 1}`;
   }
 
   /**
@@ -228,35 +256,41 @@ export class IngestManager {
   }
 
   /**
-   * Cria source no GBrain (placeholder - integrar com core)
+   * Cria source no GBrain usando sources-ops.ts
    */
   private async createSource(params: {
-    brainId: string;
+    id: string;
     name: string;
     type: string;
     metadata: any;
     tags?: string[];
     category?: string;
-  }): Promise<string> {
-    // TODO: Integrar com src/core/operations.ts
-    // Por enquanto retorna ID mock
-    return `source-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  }
-
-  /**
-   * Cria página no GBrain (placeholder - integrar com core)
-   */
-  private async createPage(params: {
-    brainId: string;
-    sourceId: string;
-    title: string;
-    content: string;
-    metadata: any;
-  }): Promise<void> {
-    // TODO: Integrar com src/core/operations.ts
-    // Esta é a interface que precisa ser implementada
-    console.log(`[INGEST] Criando página: ${params.title} (${params.content.length} chars)`);
+  }): Promise<{ id: string; name: string }> {
+    // Cria diretório temporário para a source
+    const tempDir = `/tmp/gbrain-ingest-${params.id}`;
+    await fs.mkdir(tempDir, { recursive: true });
+    
+    // Usa addSource do core
+    const sourceRow = await addSource(this.engine, {
+      id: params.id,
+      name: params.name,
+      localPath: tempDir,
+      config: {
+        type: params.type,
+        metadata: params.metadata,
+        tags: params.tags,
+        category: params.category,
+        ingested_via: 'document-upload',
+      },
+    });
+    
+    return { id: sourceRow.id, name: sourceRow.name };
   }
 }
 
-export const ingestManager = new IngestManager();
+/**
+ * Factory function para criar IngestManager com engine
+ */
+export function createIngestManager(engine: BrainEngine): IngestManager {
+  return new IngestManager(engine);
+}

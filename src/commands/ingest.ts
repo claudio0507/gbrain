@@ -23,7 +23,8 @@
 import { Command } from 'commander';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { ingestManager, documentParser } from '../ingest/index.js';
+import { createIngestManager, documentParser } from '../ingest/index.js';
+import { createEngine } from '../core/engine-factory.js';
 import { getConfig } from '../core/config.js';
 
 export function registerIngestCommand(program: Command): void {
@@ -41,15 +42,19 @@ export function registerIngestCommand(program: Command): void {
     .action(async (filePath: string, options) => {
       try {
         const config = await getConfig();
+        const engine = await createEngine(config);
+        const ingestManager = createIngestManager(engine);
         
         // Verifica se é arquivo ou diretório
         const stats = await fs.stat(filePath);
         
         if (stats.isDirectory()) {
-          await ingestDirectory(filePath, options);
+          await ingestDirectory(filePath, options, ingestManager);
         } else {
-          await ingestSingleFile(filePath, options);
+          await ingestSingleFile(filePath, options, ingestManager);
         }
+        
+        await engine.disconnect();
       } catch (error) {
         console.error('❌ Erro:', error instanceof Error ? error.message : error);
         process.exit(1);
@@ -85,7 +90,11 @@ export function registerIngestCommand(program: Command): void {
     });
 }
 
-async function ingestSingleFile(filePath: string, options: any): Promise<void> {
+async function ingestSingleFile(
+  filePath: string, 
+  options: any,
+  ingestManager: import('../ingest/index.js').IngestManager
+): Promise<void> {
   console.log(`📄 Ingestão: ${path.basename(filePath)}`);
   
   if (options.dryRun) {
@@ -122,7 +131,11 @@ async function ingestSingleFile(filePath: string, options: any): Promise<void> {
   }
 }
 
-async function ingestDirectory(dirPath: string, options: any): Promise<void> {
+async function ingestDirectory(
+  dirPath: string, 
+  options: any,
+  ingestManager: import('../ingest/index.js').IngestManager
+): Promise<void> {
   console.log(`📁 Diretório: ${dirPath}`);
   console.log(`   Recursivo: ${options.recursive ? 'sim' : 'não'}`);
   console.log('');
