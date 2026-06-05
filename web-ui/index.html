@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GBrain Ingest - Upload de Documentos</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e4e4e7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #fafafa;
+    }
+
+    .header .brain-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .header select {
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      color: #e4e4e7;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    .container {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .upload-zone {
+      border: 2px dashed #3f3f46;
+      border-radius: 1rem;
+      padding: 4rem 2rem;
+      text-align: center;
+      transition: all 0.2s;
+      background: #18181b;
+      cursor: pointer;
+    }
+
+    .upload-zone:hover {
+      border-color: #6366f1;
+      background: #1e1e24;
+    }
+
+    .upload-zone.dragover {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    .upload-zone .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.6;
+    }
+
+    .upload-zone h2 {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #fafafa;
+    }
+
+    .upload-zone p {
+      color: #a1a1aa;
+      font-size: 0.875rem;
+    }
+
+    .upload-zone .formats {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .upload-zone .format-tag {
+      background: #27272a;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      color: #a1a1aa;
+    }
+
+    .options {
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .option-group {
+      background: #18181b;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid #27272a;
+    }
+
+    .option-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .option-group input,
+    .option-group select {
+      width: 100%;
+      background: #0a0a0f;
+      border: 1px solid #3f3f46;
+      color: #e4e4e7;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    .option-group input:focus,
+    .option-group select:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+
+    .file-list {
+      margin-top: 2rem;
+    }
+
+    .file-list h3 {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #a1a1aa;
+      margin-bottom: 1rem;
+    }
+
+    .file-item {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .file-item .file-icon {
+      width: 40px;
+      height: 40px;
+      background: #27272a;
+      border-radius: 0.375rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .file-item .file-info {
+      flex: 1;
+    }
+
+    .file-item .file-name {
+      font-weight: 500;
+      color: #fafafa;
+      font-size: 0.875rem;
+    }
+
+    .file-item .file-meta {
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-top: 0.25rem;
+    }
+
+    .file-item .file-status {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .file-item .file-status.pending {
+      background: #27272a;
+      color: #a1a1aa;
+    }
+
+    .file-item .file-status.uploading {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+    }
+
+    .file-item .file-status.success {
+      background: rgba(34, 197, 94, 0.2);
+      color: #4ade80;
+    }
+
+    .file-item .file-status.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .file-item .remove-btn {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .file-item .remove-btn:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .actions {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-secondary {
+      background: #27272a;
+      color: #e4e4e7;
+    }
+
+    .btn-secondary:hover {
+      background: #3f3f46;
+    }
+
+    .btn-primary {
+      background: #6366f1;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #4f46e5;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #27272a;
+      border-radius: 2px;
+      margin-top: 0.75rem;
+      overflow: hidden;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      background: #6366f1;
+      transition: width 0.3s;
+    }
+
+    .results {
+      margin-top: 2rem;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+    }
+
+    .results h3 {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #a1a1aa;
+      margin-bottom: 1rem;
+    }
+
+    .result-item {
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .result-item.success {
+      background: rgba(34, 197, 94, 0.1);
+      border-left: 3px solid #22c55e;
+    }
+
+    .result-item.error {
+      background: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid #ef4444;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>🧠 GBrain Ingest</h1>
+    <div class="brain-selector">
+      <label>Brain:</label>
+      <select id="brainSelect">
+        <option value="default">default</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="upload-zone" id="uploadZone">
+      <div class="icon">📄</div>
+      <h2>Solte arquivos aqui</h2>
+      <p>ou clique para selecionar documentos</p>
+      <div class="formats">
+        <span class="format-tag">PDF</span>
+        <span class="format-tag">Excel</span>
+        <span class="format-tag">CSV</span>
+        <span class="format-tag">Word</span>
+        <span class="format-tag">Markdown</span>
+        <span class="format-tag">JSON</span>
+      </div>
+      <input type="file" id="fileInput" multiple accept=".pdf,.xlsx,.xls,.csv,.docx,.doc,.md,.json,.txt">
+    </div>
+
+    <div class="options">
+      <div class="option-group">
+        <label>Categoria</label>
+        <select id="category">
+          <option value="document">Documento</option>
+          <option value="report">Relatório</option>
+          <option value="spreadsheet">Planilha</option>
+          <option value="contract">Contrato</option>
+          <option value="note">Nota</option>
+        </select>
+      </div>
+      <div class="option-group">
+        <label>Tags (separadas por vírgula)</label>
+        <input type="text" id="tags" placeholder="ex: projeto-x, importante, 2024">
+      </div>
+      <div class="option-group">
+        <label>Nome da Source (opcional)</label>
+        <input type="text" id="sourceName" placeholder="Deixe em branco para usar nome do arquivo">
+      </div>
+    </div>
+
+    <div class="file-list" id="fileList" style="display: none;">
+      <h3>Arquivos selecionados</h3>
+      <div id="fileItems"></div>
+    </div>
+
+    <div class="actions" id="actions" style="display: none;">
+      <button class="btn btn-secondary" id="clearBtn">Limpar</button>
+      <button class="btn btn-primary" id="uploadBtn">Ingerir documentos</button>
+    </div>
+
+    <div class="results" id="results" style="display: none;">
+      <h3>Resultados</h3>
+      <div id="resultsList"></div>
+    </div>
+  </main>
+
+  <script>
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const fileItems = document.getElementById('fileItems');
+    const actions = document.getElementById('actions');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const results = document.getElementById('results');
+    const resultsList = document.getElementById('resultsList');
+
+    let files = [];
+
+    // Drag and drop
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files);
+    });
+
+    function handleFiles(fileList) {
+      for (const file of fileList) {
+        files.push({
+          file,
+          id: Math.random().toString(36).slice(2),
+          status: 'pending'
+        });
+      }
+      renderFiles();
+    }
+
+    function renderFiles() {
+      if (files.length === 0) {
+        fileList.style.display = 'none';
+        actions.style.display = 'none';
+        return;
+      }
+
+      fileList.style.display = 'block';
+      actions.style.display = 'flex';
+
+      fileItems.innerHTML = files.map(f => `
+        <div class="file-item" data-id="${f.id}">
+          <div class="file-icon">${getFileIcon(f.file.name)}</div>
+          <div class="file-info">
+            <div class="file-name">${escapeHtml(f.file.name)}</div>
+            <div class="file-meta">${formatBytes(f.file.size)} • ${f.status}</div>
+            ${f.status === 'uploading' ? `
+              <div class="progress-bar">
+                <div class="fill" style="width: ${f.progress || 0}%"></div>
+              </div>
+            ` : ''}
+          </div>
+          <span class="file-status ${f.status}">${f.status}</span>
+          <button class="remove-btn" onclick="removeFile('${f.id}')">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function getFileIcon(filename) {
+      const ext = filename.split('.').pop().toLowerCase();
+      const icons = {
+        pdf: '📄',
+        xlsx: '📊',
+        xls: '📊',
+        csv: '📊',
+        docx: '📝',
+        doc: '📝',
+        md: '📖',
+        json: '🗄️',
+        txt: '📃'
+      };
+      return icons[ext] || '📁';
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    window.removeFile = function(id) {
+      files = files.filter(f => f.id !== id);
+      renderFiles();
+    };
+
+    clearBtn.addEventListener('click', () => {
+      files = [];
+      renderFiles();
+      results.style.display = 'none';
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (files.length === 0) return;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Ingerindo...';
+
+      const category = document.getElementById('category').value;
+      const tags = document.getElementById('tags').value;
+      const sourceName = document.getElementById('sourceName').value;
+      const brain = document.getElementById('brainSelect').value;
+
+      results.style.display = 'block';
+      resultsList.innerHTML = '<p>Processando...</p>';
+
+      const results_data = [];
+
+      for (const fileObj of files) {
+        fileObj.status = 'uploading';
+        fileObj.progress = 0;
+        renderFiles();
+
+        const formData = new FormData();
+        formData.append('file', fileObj.file);
+        formData.append('brain', brain);
+        formData.append('category', category);
+        formData.append('tags', tags);
+        formData.append('sourceName', sourceName);
+
+        try {
+          const response = await fetch('/api/ingest', {
+            method: 'POST',
+            body: formData
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            fileObj.status = 'success';
+            results_data.push({
+              file: fileObj.file.name,
+              success: true,
+              pages: result.pagesCreated,
+              sourceId: result.sourceId
+            });
+          } else {
+            fileObj.status = 'error';
+            results_data.push({
+              file: fileObj.file.name,
+              success: false,
+              error: result.error || 'Erro desconhecido'
+            });
+          }
+        } catch (error) {
+          fileObj.status = 'error';
+          results_data.push({
+            file: fileObj.file.name,
+            success: false,
+            error: error.message
+          });
+        }
+
+        fileObj.progress = 100;
+        renderFiles();
+      }
+
+      // Render results
+      resultsList.innerHTML = results_data.map(r => `
+        <div class="result-item ${r.success ? 'success' : 'error'}">
+          <strong>${escapeHtml(r.file)}</strong>
+          ${r.success 
+            ? `✅ ${r.pages} página(s) criadas (Source: ${r.sourceId.slice(0, 8)}...)` 
+            : `❌ ${escapeHtml(r.error)}`}
+        </div>
+      `).join('');
+
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Ingerir documentos';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "@gbrain/web-ui",
+  "version": "1.0.0",
+  "description": "Interface web para ingestão de documentos no GBrain",
+  "type": "module",
+  "scripts": {
+    "start": "bun server.ts",
+    "dev": "bun --watch server.ts",
+    "build": "echo 'Static files only - no build needed'"
+  },
+  "dependencies": {
+    "bun": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@gbrain/core": "workspace:*"
+  },
+  "keywords": [
+    "gbrain",
+    "web-ui",
+    "document-upload",
+    "knowledge-base"
+  ],
+  "author": "Corvus Hub",
+  "license": "MIT"
+}
